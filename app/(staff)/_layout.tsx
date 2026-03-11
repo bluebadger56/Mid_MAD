@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 
-const TabsLayout = () => {
+export default function StaffLayout() {
   const { colors } = useTheme();
   return (
     <Tabs
@@ -29,23 +29,32 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Dashboard",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="grid-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="scan"
+        name="attendance"
         options={{
-          title: "Scan",
+          title: "Absensi",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card-outline" size={size} color={color} />
+            <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="menu"
+        name="inventory"
+        options={{
+          title: "Inventory",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cube-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="menuManage"
         options={{
           title: "Menu",
           tabBarIcon: ({ color, size }) => (
@@ -53,17 +62,6 @@ const TabsLayout = () => {
           ),
         }}
       />
-      <Tabs.Screen
-        name="feedback"
-        options={{
-          title: "Feedback",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-outline" size={size} color={color} />
-          ),
-        }}
-      />
     </Tabs>
   );
-};
-
-export default TabsLayout;
+}
