@@ -3,9 +3,8 @@ import { useAuth } from "@/hooks/useAuth";
 import useTheme from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    Alert,
     FlatList,
     StyleSheet,
     Text,
@@ -14,12 +13,30 @@ import {
     View,
 } from "react-native";
 
+function useToday() {
+  const [today, setToday] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  useEffect(() => {
+    const check = () => {
+      const now = new Date().toISOString().split("T")[0];
+      if (now !== today) setToday(now);
+    };
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, [today]);
+  return today;
+}
+
 export default function ScanScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const today = new Date().toISOString().split("T")[0];
+  const today = useToday();
   const scanMutation = useMutation(api.mealCards.scanMealCard);
-  const todayScans = useQuery(api.mealCards.getTodayScans, { date: today });
+  const myScans = useQuery(
+    api.mealCards.getMyScansToday,
+    user ? { userId: user._id, date: today } : "skip",
+  );
 
   const [cardInput, setCardInput] = useState("");
   const [mealType, setMealType] = useState<"breakfast" | "lunch" | "dinner">(
@@ -30,18 +47,46 @@ export default function ScanScreen() {
     message: string;
   } | null>(null);
 
-  // Detect current meal type based on time
+  // Jadwal waktu scan yang diizinkan (jam)
+  const MEAL_WINDOWS = {
+    breakfast: { start: 6, end: 7, label: "06:00 – 07:00" },
+    lunch: { start: 12, end: 13, label: "12:00 – 13:00" },
+    dinner: { start: 18, end: 19, label: "18:00 – 19:00" },
+  };
+
+  const isWithinWindow = (key: "breakfast" | "lunch" | "dinner") => {
+    const hour = new Date().getHours();
+    const minute = new Date().getMinutes();
+    const t = hour + minute / 60;
+    const w = MEAL_WINDOWS[key];
+    return t >= w.start && t < w.end;
+  };
+
+  // Auto-pilih waktu makan aktif saat ini
   React.useEffect(() => {
     const hour = new Date().getHours();
-    if (hour < 10) setMealType("breakfast");
-    else if (hour < 15) setMealType("lunch");
+    if (hour >= 6 && hour < 7) setMealType("breakfast");
+    else if (hour >= 12 && hour < 13) setMealType("lunch");
+    else if (hour >= 18 && hour < 19) setMealType("dinner");
+    // di luar jadwal tetap tampilkan pilihan terakhir yang relevan
+    else if (hour < 12) setMealType("breakfast");
+    else if (hour < 18) setMealType("lunch");
     else setMealType("dinner");
   }, []);
 
   const handleScan = async () => {
     const id = cardInput.trim() || user?.card_id;
     if (!id) {
-      Alert.alert("Error", "Masukkan Card ID");
+      setLastResult({ success: false, message: "Masukkan Card ID" });
+      return;
+    }
+    if (!isWithinWindow(mealType)) {
+      const w = MEAL_WINDOWS[mealType];
+      const labels = { breakfast: "Pagi", lunch: "Siang", dinner: "Malam" };
+      setLastResult({
+        success: false,
+        message: `Di luar jadwal makan ${labels[mealType]} (${w.label})`,
+      });
       return;
     }
     try {
@@ -57,18 +102,21 @@ export default function ScanScreen() {
     {
       key: "breakfast" as const,
       label: "Pagi",
+      time: "06:00 – 07:00",
       icon: "sunny-outline" as const,
       color: colors.warning,
     },
     {
       key: "lunch" as const,
       label: "Siang",
+      time: "12:00 – 13:00",
       icon: "partly-sunny-outline" as const,
       color: colors.primary,
     },
     {
       key: "dinner" as const,
       label: "Malam",
+      time: "18:00 – 19:00",
       icon: "moon-outline" as const,
       color: "#8b5cf6",
     },
@@ -93,35 +141,64 @@ export default function ScanScreen() {
 
       {/* Meal Type Selector */}
       <View style={styles.mealRow}>
-        {mealTypes.map((m) => (
-          <TouchableOpacity
-            key={m.key}
-            style={[
-              styles.mealBtn,
-              { borderColor: colors.border },
-              mealType === m.key && {
-                backgroundColor: m.color,
-                borderColor: m.color,
-              },
-            ]}
-            onPress={() => setMealType(m.key)}
-          >
-            <Ionicons
-              name={m.icon}
-              size={18}
-              color={mealType === m.key ? "#fff" : m.color}
-            />
-            <Text
-              style={{
-                color: mealType === m.key ? "#fff" : colors.textMuted,
-                fontWeight: "600",
-                fontSize: 12,
-              }}
+        {mealTypes.map((m) => {
+          const active = isWithinWindow(m.key);
+          return (
+            <TouchableOpacity
+              key={m.key}
+              style={[
+                styles.mealBtn,
+                {
+                  borderColor: active ? m.color : colors.border,
+                  opacity: active ? 1 : 0.55,
+                },
+                mealType === m.key && {
+                  backgroundColor: m.color,
+                  borderColor: m.color,
+                },
+              ]}
+              onPress={() => setMealType(m.key)}
             >
-              {m.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Ionicons
+                name={m.icon}
+                size={18}
+                color={mealType === m.key ? "#fff" : m.color}
+              />
+              <View style={{ alignItems: "center" }}>
+                <Text
+                  style={{
+                    color: mealType === m.key ? "#fff" : colors.textMuted,
+                    fontWeight: "700",
+                    fontSize: 12,
+                  }}
+                >
+                  {m.label}
+                </Text>
+                <Text
+                  style={{
+                    color:
+                      mealType === m.key ? "rgba(255,255,255,0.85)" : m.color,
+                    fontSize: 10,
+                    fontWeight: "600",
+                  }}
+                >
+                  {m.time}
+                </Text>
+                {active && (
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: mealType === m.key ? "#fff" : m.color,
+                      marginTop: 3,
+                    }}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Card Input */}
@@ -186,15 +263,15 @@ export default function ScanScreen() {
       {/* Today's Scan History */}
       <View style={styles.historyHeader}>
         <Text style={[styles.historyTitle, { color: colors.text }]}>
-          Riwayat Hari Ini
+          Riwayat Scan Kamu Hari Ini
         </Text>
         <Text style={[styles.historyCount, { color: colors.textMuted }]}>
-          {todayScans?.length ?? 0} scan
+          {myScans?.length ?? 0}/3 waktu makan
         </Text>
       </View>
 
       <FlatList
-        data={todayScans}
+        data={myScans}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
@@ -205,53 +282,57 @@ export default function ScanScreen() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <View
-            style={[
-              styles.scanItem,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
+        renderItem={({ item }) => {
+          const mealLabel =
+            item.meal_type === "breakfast"
+              ? "Sarapan"
+              : item.meal_type === "lunch"
+                ? "Makan Siang"
+                : "Makan Malam";
+          const mealColor =
+            item.meal_type === "breakfast"
+              ? colors.warning
+              : item.meal_type === "lunch"
+                ? colors.primary
+                : "#8b5cf6";
+          const mealIcon =
+            item.meal_type === "breakfast"
+              ? ("sunny-outline" as const)
+              : item.meal_type === "lunch"
+                ? ("partly-sunny-outline" as const)
+                : ("moon-outline" as const);
+          return (
             <View
               style={[
-                styles.scanIcon,
+                styles.scanItem,
                 {
-                  backgroundColor:
-                    item.userType === "insider"
-                      ? colors.success + "15"
-                      : colors.warning + "15",
+                  backgroundColor: mealColor + "12",
+                  borderColor: mealColor,
                 },
               ]}
             >
-              <Ionicons
-                name="person"
-                size={18}
-                color={
-                  item.userType === "insider" ? colors.success : colors.warning
-                }
-              />
-            </View>
-            <View style={styles.scanInfo}>
-              <Text style={[styles.scanName, { color: colors.text }]}>
-                {item.userName}
+              <View
+                style={[styles.scanIcon, { backgroundColor: mealColor + "25" }]}
+              >
+                <Ionicons name={mealIcon} size={18} color={mealColor} />
+              </View>
+              <View style={styles.scanInfo}>
+                <Text style={[styles.scanName, { color: colors.text }]}>
+                  {mealLabel}
+                </Text>
+                <Text style={[styles.scanMeta, { color: colors.textMuted }]}>
+                  Berhasil scan ✓
+                </Text>
+              </View>
+              <Text style={[styles.scanTime, { color: mealColor }]}>
+                {new Date(item.scanned_at).toLocaleTimeString("id-ID", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </Text>
-              <Text style={[styles.scanMeta, { color: colors.textMuted }]}>
-                {item.userType === "insider" ? "Asrama" : "Outsider"} ·{" "}
-                {item.meal_type === "breakfast"
-                  ? "Pagi"
-                  : item.meal_type === "lunch"
-                    ? "Siang"
-                    : "Malam"}
-              </Text>
             </View>
-            <Text style={[styles.scanTime, { color: colors.textMuted }]}>
-              {new Date(item.scanned_at).toLocaleTimeString("id-ID", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-          </View>
-        )}
+          );
+        }}
       />
     </View>
   );

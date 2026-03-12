@@ -4,7 +4,7 @@ import useTheme from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -13,11 +13,26 @@ import {
     View,
 } from "react-native";
 
+function useToday() {
+  const [today, setToday] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  useEffect(() => {
+    const check = () => {
+      const now = new Date().toISOString().split("T")[0];
+      if (now !== today) setToday(now);
+    };
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, [today]);
+  return today;
+}
+
 export default function StaffDashboard() {
   const { colors } = useTheme();
   const { user, logout } = useAuth();
   const router = useRouter();
-  const today = new Date().toISOString().split("T")[0];
+  const today = useToday();
   const mealStats = useQuery(api.mealCards.getMealStats, { date: today });
   const todayAttendance = useQuery(api.attendance.getAttendanceByDate, {
     date: today,
@@ -30,7 +45,6 @@ export default function StaffDashboard() {
 
   const handleLogout = () => {
     logout();
-    router.replace("/login");
   };
 
   return (

@@ -56,6 +56,10 @@ export default function MenuManageScreen() {
   });
   const setMenuMut = useMutation(api.menus.setMenu);
   const deleteMenuMut = useMutation(api.menus.deleteMenu);
+  const seedMenuMut = useMutation(api.menus.seedWeeklyMenu);
+
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedMsg, setSeedMsg] = useState("");
 
   const [selectedDay, setSelectedDay] = useState(
     DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1],
@@ -71,7 +75,10 @@ export default function MenuManageScreen() {
   ).filter(Boolean);
 
   const handleSave = async () => {
-    if (!formName.trim()) return Alert.alert("Error", "Masukkan nama menu");
+    if (!formName.trim()) {
+      Alert.alert("Error", "Masukkan nama menu");
+      return;
+    }
     try {
       await setMenuMut({
         day: selectedDay,
@@ -97,6 +104,20 @@ export default function MenuManageScreen() {
         onPress: () => deleteMenuMut({ id: id as any }),
       },
     ]);
+  };
+
+  const handleSeedMenu = async () => {
+    setSeedLoading(true);
+    setSeedMsg("");
+    try {
+      const result = await seedMenuMut({ week_start: weekStart });
+      setSeedMsg(`✅ ${result.inserted} menu berhasil diisi untuk minggu ini!`);
+    } catch (e: any) {
+      setSeedMsg(`❌ Gagal: ${e.message}`);
+    } finally {
+      setSeedLoading(false);
+      setTimeout(() => setSeedMsg(""), 4000);
+    }
   };
 
   const handleEdit = (item: any) => {
@@ -134,6 +155,61 @@ export default function MenuManageScreen() {
           <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* Seed Menu Banner */}
+      <View
+        style={[
+          styles.seedBanner,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.text, fontWeight: "700", fontSize: 13 }}>
+            Menu Vegan Mingguan
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
+            Isi otomatis menu sayur vegan Sen–Min + Telur Sabtu siang
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.seedBtn, { backgroundColor: colors.success }]}
+          onPress={handleSeedMenu}
+          disabled={seedLoading}
+        >
+          <Ionicons
+            name={seedLoading ? "refresh" : "sparkles"}
+            size={14}
+            color="#fff"
+          />
+          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+            {seedLoading ? "Mengisi..." : "Isi Otomatis"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {seedMsg ? (
+        <View
+          style={[
+            styles.seedMsg,
+            {
+              backgroundColor: seedMsg.startsWith("✅")
+                ? colors.success + "18"
+                : colors.danger + "18",
+              borderColor: seedMsg.startsWith("✅")
+                ? colors.success
+                : colors.danger,
+            },
+          ]}
+        >
+          <Text
+            style={{
+              color: seedMsg.startsWith("✅") ? colors.success : colors.danger,
+              fontSize: 13,
+            }}
+          >
+            {seedMsg}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Day Selector */}
       <FlatList
@@ -353,6 +429,32 @@ const styles = StyleSheet.create({
   menuDesc: { fontSize: 13 },
   empty: { alignItems: "center", paddingTop: 60, gap: 8 },
   emptyText: { fontSize: 14 },
+  seedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  seedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  seedMsg: {
+    marginHorizontal: 16,
+    marginBottom: 6,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "#00000060",

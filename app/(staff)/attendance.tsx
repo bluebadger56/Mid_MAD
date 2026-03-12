@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import useTheme from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     Alert,
     FlatList,
@@ -13,10 +13,25 @@ import {
     View,
 } from "react-native";
 
+function useToday() {
+  const [today, setToday] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  useEffect(() => {
+    const check = () => {
+      const now = new Date().toISOString().split("T")[0];
+      if (now !== today) setToday(now);
+    };
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, [today]);
+  return today;
+}
+
 export default function AttendanceScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const today = new Date().toISOString().split("T")[0];
+  const today = useToday();
 
   const clockInMut = useMutation(api.attendance.clockIn);
   const clockOutMut = useMutation(api.attendance.clockOut);

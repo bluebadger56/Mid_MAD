@@ -1,6 +1,20 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// ─── Helper: generate unique 7-digit card ID ────────────────
+async function generateUniqueCardId(ctx: any): Promise<string> {
+  for (let i = 0; i < 20; i++) {
+    const num = Math.floor(1000000 + Math.random() * 9000000);
+    const cardId = num.toString();
+    const existing = await ctx.db
+      .query("users")
+      .filter((q: any) => q.eq(q.field("card_id"), cardId))
+      .first();
+    if (!existing) return cardId;
+  }
+  throw new Error("Gagal generate Card ID unik, coba lagi");
+}
+
 // ─── Register ───────────────────────────────────────────────
 export const register = mutation({
   args: {
@@ -9,7 +23,6 @@ export const register = mutation({
     password: v.string(),
     role: v.string(),
     type: v.string(),
-    card_id: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -18,15 +31,21 @@ export const register = mutation({
       .first();
     if (existing) throw new Error("Email sudah terdaftar");
 
-    return await ctx.db.insert("users", {
+    // Auto-generate 7-digit card ID for students; staff don't need one
+    const card_id =
+      args.role === "student" ? await generateUniqueCardId(ctx) : undefined;
+
+    const _id = await ctx.db.insert("users", {
       name: args.name,
       email: args.email,
       password: args.password,
       role: args.role,
       type: args.type,
-      card_id: args.card_id,
+      card_id,
       is_active: true,
     });
+
+    return { _id, card_id };
   },
 });
 

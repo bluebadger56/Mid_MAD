@@ -23,7 +23,6 @@ export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [cardId, setCardId] = useState("");
   const [role, setRole] = useState<"student" | "staff">("student");
   const [type, setType] = useState<"insider" | "outsider">("insider");
   const [loading, setLoading] = useState(false);
@@ -37,22 +36,23 @@ export default function RegisterScreen() {
       setError("Isi nama, email, dan password");
       return;
     }
-    if (role === "student" && !cardId.trim()) {
-      setError("Mahasiswa wajib punya Card ID");
-      return;
-    }
     setLoading(true);
     try {
-      await registerMutation({
+      const result = await registerMutation({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password: password.trim(),
         role,
         type: role === "staff" ? "insider" : type,
-        card_id: cardId.trim() || undefined,
       });
-      setSuccess("Akun berhasil dibuat! Silakan login.");
-      setTimeout(() => router.replace("/login"), 2000);
+      if (role === "student" && result.card_id) {
+        setSuccess(
+          `Akun berhasil dibuat! Card ID kamu: ${result.card_id} — simpan baik-baik ya!`,
+        );
+      } else {
+        setSuccess("Akun berhasil dibuat! Silakan login.");
+      }
+      setTimeout(() => router.replace("/login"), 3000);
     } catch (e: any) {
       setError(e.message ?? "Gagal mendaftar");
     } finally {
@@ -202,12 +202,14 @@ export default function RegisterScreen() {
 
           {role === "student" && (
             <>
+              {/* Card ID auto-generated — info box */}
               <View
                 style={[
                   styles.inputBox,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
+                    opacity: 0.8,
                   },
                 ]}
               >
@@ -216,13 +218,12 @@ export default function RegisterScreen() {
                   size={18}
                   color={colors.textMuted}
                 />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Card ID (Kartu Makan)"
-                  placeholderTextColor={colors.textMuted}
-                  value={cardId}
-                  onChangeText={setCardId}
-                />
+                <Text
+                  style={{ color: colors.textMuted, fontSize: 14, flex: 1 }}
+                >
+                  Card ID 7 digit akan dibuat otomatis
+                </Text>
+                <Ionicons name="sparkles" size={16} color={colors.primary} />
               </View>
 
               {/* Insider / Outsider */}

@@ -4,7 +4,7 @@ import useTheme from "@/hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -13,35 +13,56 @@ import {
     View,
 } from "react-native";
 
+function useToday() {
+  const [today, setToday] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  useEffect(() => {
+    const check = () => {
+      const now = new Date().toISOString().split("T")[0];
+      if (now !== today) setToday(now);
+    };
+    const interval = setInterval(check, 60000); // check every minute
+    return () => clearInterval(interval);
+  }, [today]);
+  return today;
+}
+
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { user, logout } = useAuth();
-  const today = new Date().toISOString().split("T")[0];
-  const mealStats = useQuery(api.mealCards.getMealStats, { date: today });
+  const today = useToday();
+  const myMealStatus = useQuery(
+    api.mealCards.getMyMealStatus,
+    user ? { userId: user._id, date: today } : "skip",
+  );
 
-  if (!user) {
-    router.replace("/login");
-    return null;
-  }
+  if (!user) return null;
 
-  const stats = [
+  const meals = [
     {
+      key: "breakfast" as const,
       label: "Sarapan",
-      value: mealStats?.breakfast ?? 0,
       icon: "sunny-outline" as const,
       color: colors.warning,
+      done: myMealStatus?.breakfast ?? false,
+      at: myMealStatus?.breakfastAt ?? null,
     },
     {
+      key: "lunch" as const,
       label: "Makan Siang",
-      value: mealStats?.lunch ?? 0,
       icon: "partly-sunny-outline" as const,
       color: colors.primary,
+      done: myMealStatus?.lunch ?? false,
+      at: myMealStatus?.lunchAt ?? null,
     },
     {
+      key: "dinner" as const,
       label: "Makan Malam",
-      value: mealStats?.dinner ?? 0,
       icon: "moon-outline" as const,
       color: "#8b5cf6",
+      done: myMealStatus?.dinner ?? false,
+      at: myMealStatus?.dinnerAt ?? null,
     },
   ];
 
@@ -88,7 +109,6 @@ export default function HomeScreen() {
         <TouchableOpacity
           onPress={async () => {
             await logout();
-            router.replace("/login");
           }}
         >
           <Ionicons name="log-out-outline" size={24} color={colors.danger} />
@@ -106,49 +126,57 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Today Stats */}
+      {/* Today Meal Status */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Hari Ini ({today})
+          Status Makan Hari Ini ({today})
         </Text>
         <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
-          Jumlah mahasiswa makan hari ini
+          {myMealStatus?.total ?? 0}/3 waktu makan selesai
         </Text>
         <View style={styles.statsRow}>
-          {stats.map((s, i) => (
+          {meals.map((m, i) => (
             <View
               key={i}
               style={[
                 styles.statCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                {
+                  backgroundColor: m.done ? m.color + "18" : colors.surface,
+                  borderColor: m.done ? m.color : colors.border,
+                },
               ]}
             >
               <View
-                style={[styles.statIcon, { backgroundColor: s.color + "15" }]}
+                style={[styles.statIcon, { backgroundColor: m.color + "20" }]}
               >
-                <Ionicons name={s.icon} size={22} color={s.color} />
+                <Ionicons name={m.icon} size={22} color={m.color} />
               </View>
-              <Text style={[styles.statValue, { color: s.color }]}>
-                {s.value}
+              <Ionicons
+                name={m.done ? "checkmark-circle" : "ellipse-outline"}
+                size={22}
+                color={m.done ? m.color : colors.border}
+              />
+              <Text
+                style={[
+                  styles.statValue,
+                  { color: m.done ? m.color : colors.textMuted, fontSize: 13 },
+                ]}
+              >
+                {m.done ? "Sudah" : "Belum"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {s.label}
+                {m.label}
               </Text>
+              {m.done && m.at && (
+                <Text style={{ color: m.color, fontSize: 10, marginTop: 2 }}>
+                  {new Date(m.at).toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Text>
+              )}
             </View>
           ))}
-        </View>
-        <View
-          style={[
-            styles.totalCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.totalLabel, { color: colors.textMuted }]}>
-            Total Makan Hari Ini
-          </Text>
-          <Text style={[styles.totalValue, { color: colors.text }]}>
-            {mealStats?.total ?? 0} mahasiswa
-          </Text>
         </View>
       </View>
 
