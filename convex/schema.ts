@@ -23,12 +23,13 @@ export default defineSchema({
 
   // ─── Staff Attendance (absen worker dining) ───────────────
   staff_attendance: defineTable({
-    user_id: v.id("users"),
-    date: v.string(),
-    clock_in: v.optional(v.number()),
-    clock_out: v.optional(v.number()),
-    status: v.string(), // "present" | "absent" | "late"
-  }),
+  user_id: v.id("users"),
+  date: v.string(),
+  status: v.optional(v.string()), // "present" atau "late"
+  clock_in: v.optional(v.number()),
+  clock_out: v.optional(v.number()),
+  type: v.string(), // TAMBAHKAN BARIS INI (untuk "attendance" atau "lunch")
+}),
 
   // ─── Inventory (stok barang & bahan) ──────────────────────
   inventory_items: defineTable({
