@@ -13,6 +13,16 @@ export default defineSchema({
     is_active: v.boolean(),
   }),
 
+  // ─── Login Logs (riwayat sign in real-time) ───────────────
+  login_logs: defineTable({
+    user_id: v.id("users"),
+    name: v.string(), // nama user (untuk mudah dibaca di dashboard)
+    role: v.string(), // "student" | "staff" | "admin"
+    logged_in_at: v.number(), // timestamp ms
+    date: v.string(), // "YYYY-MM-DD" untuk filter harian
+    device: v.optional(v.string()),
+  }),
+
   // ─── Meal Scans (riwayat scan kartu makan) ───────────────
   meal_scans: defineTable({
     user_id: v.id("users"),
@@ -22,14 +32,17 @@ export default defineSchema({
   }),
 
   // ─── Staff Attendance (absen worker dining) ───────────────
+  // NOTE: type dibuat optional sementara untuk keperluan migration.
+  // Setelah menjalankan migrations:fixStaffAttendanceType via Dashboard,
+  // ubah kembali type menjadi v.string() (wajib).
   staff_attendance: defineTable({
-  user_id: v.id("users"),
-  date: v.string(),
-  status: v.optional(v.string()), // "present" atau "late"
-  clock_in: v.optional(v.number()),
-  clock_out: v.optional(v.number()),
-  type: v.string(), // TAMBAHKAN BARIS INI (untuk "attendance" atau "lunch")
-}),
+    user_id: v.id("users"),
+    date: v.string(),
+    status: v.optional(v.string()), // "present" | "late"
+    clock_in: v.optional(v.number()),
+    clock_out: v.optional(v.number()),
+    type: v.optional(v.string()), // ← SEMENTARA optional | "attendance" | "lunch"
+  }),
 
   // ─── Inventory (stok barang & bahan) ──────────────────────
   inventory_items: defineTable({

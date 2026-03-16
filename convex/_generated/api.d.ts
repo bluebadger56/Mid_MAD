@@ -14,6 +14,7 @@ import type * as feedback from "../feedback.js";
 import type * as inventory from "../inventory.js";
 import type * as mealCards from "../mealCards.js";
 import type * as menus from "../menus.js";
+import type * as migration from "../migration.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   inventory: typeof inventory;
   mealCards: typeof mealCards;
   menus: typeof menus;
+  migration: typeof migration;
 }>;
 
 /**

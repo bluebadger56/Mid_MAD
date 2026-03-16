@@ -31,7 +31,6 @@ export const register = mutation({
       .first();
     if (existing) throw new Error("Email sudah terdaftar");
 
-    // Auto-generate 7-digit card ID for students; staff don't need one
     const card_id =
       args.role === "student" ? await generateUniqueCardId(ctx) : undefined;
 
@@ -54,6 +53,7 @@ export const login = mutation({
   args: {
     email: v.string(),
     password: v.string(),
+    device: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -63,6 +63,16 @@ export const login = mutation({
     if (!user) throw new Error("User tidak ditemukan");
     if (user.password !== args.password) throw new Error("Password salah");
     if (!user.is_active) throw new Error("Akun tidak aktif");
+
+    await ctx.db.insert("login_logs", {
+      user_id: user._id,
+      name: user.name,
+      role: user.role,
+      logged_in_at: Date.now(),
+      date: new Date().toISOString().split("T")[0],
+      device: args.device ?? "unknown",
+    });
+
     return {
       _id: user._id,
       name: user.name,
@@ -124,5 +134,36 @@ export const getStaff = query({
       .query("users")
       .filter((q) => q.eq(q.field("role"), "staff"))
       .collect();
+  },
+});
+
+// ─── Get Login Logs Hari Ini (real-time) ────────────────────
+export const getTodayLoginLogs = query({
+  handler: async (ctx) => {
+    const today = new Date().toISOString().split("T")[0];
+    return await ctx.db
+      .query("login_logs")
+      .filter((q) => q.eq(q.field("date"), today))
+      .order("desc")
+      .collect();
+  },
+});
+
+// ─── Get Semua Login Logs (admin, max 100) ──────────────────
+export const getAllLoginLogs = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("login_logs").order("desc").take(100);
+  },
+});
+
+// ─── Get Login Logs by User ─────────────────────────────────
+export const getLoginLogsByUser = query({
+  args: { user_id: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("login_logs")
+      .filter((q) => q.eq(q.field("user_id"), args.user_id))
+      .order("desc")
+      .take(20);
   },
 });
